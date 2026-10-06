@@ -118,6 +118,13 @@ For Flox users, `mkcert` can be installed into a Flox environment.
 flox install mkcert
 ```
 
+If you prefer building and running mkcert in a Docker container
+
+```
+docker build . -t mkcert
+docker run -it --rm --user $UID -v $PWD:/tmp/certs mkcert localhost 127.0.0.1 ::1
+```
+
 ### Windows
 
 On Windows, use [Chocolatey](https://chocolatey.org)
