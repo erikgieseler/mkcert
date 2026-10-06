@@ -180,13 +180,21 @@ Note that Firefox version 120 and later trusts certificates added to the system 
 	-ecdsa
 	    Generate a certificate with an ECDSA key.
 
+	-mldsa
+	    Generate a certificate with an ML-DSA-65 key (post-quantum,
+	    FIPS 204). Requires Go 1.27+.
+
 	-pkcs12
 	    Generate a ".p12" PKCS #12 file, also know as a ".pfx" file,
 	    containing certificate and key for legacy applications.
 
 	-csr CSR
 	    Generate a certificate based on the supplied CSR. Conflicts with
-	    all other flags and arguments except -install and -cert-file.
+	    all other flags and arguments except -install, -client and -cert-file.
+
+	-name-constraints DOMAIN
+	    Constrain the local CA to the given domain (X.509 name constraints).
+	    Only effective when the CA is created.
 ```
 
 > **Note:** You _must_ place these options before the domain names list.
