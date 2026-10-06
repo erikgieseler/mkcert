@@ -19,8 +19,9 @@ import (
 )
 
 var (
-	hasJava    bool
-	hasKeytool bool
+	hasJava        bool
+	hasKeytool     bool
+	hasCAcertsPath bool
 
 	javaHome    string
 	cacertsPath string
@@ -45,10 +46,12 @@ func init() {
 		}
 
 		if pathExists(filepath.Join(v, "lib", "security", "cacerts")) {
+			hasCAcertsPath = true
 			cacertsPath = filepath.Join(v, "lib", "security", "cacerts")
 		}
 
 		if pathExists(filepath.Join(v, "jre", "lib", "security", "cacerts")) {
+			hasCAcertsPath = true
 			cacertsPath = filepath.Join(v, "jre", "lib", "security", "cacerts")
 		}
 	}
@@ -56,6 +59,10 @@ func init() {
 
 func (m *mkcert) checkJava() bool {
 	if !hasKeytool {
+		return false
+	}
+
+	if !hasCAcertsPath {
 		return false
 	}
 
@@ -108,6 +115,7 @@ func (m *mkcert) uninstallJava() {
 // execKeytool will execute a "keytool" command and if needed re-execute
 // the command with commandWithSudo to work around file permissions.
 func execKeytool(cmd *exec.Cmd) ([]byte, error) {
+	cmd.Env = append(cmd.Env, "JAVA_TOOL_OPTIONS=-Dfile.encoding=UTF-8")
 	out, err := cmd.CombinedOutput()
 	if err != nil && bytes.Contains(out, []byte("java.io.FileNotFoundException")) && runtime.GOOS != "windows" {
 		origArgs := cmd.Args[1:]

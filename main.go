@@ -57,6 +57,10 @@ const advancedUsage = `Advanced options:
 	-ecdsa
 	    Generate a certificate with an ECDSA key.
 
+	-mldsa
+	    Generate a certificate with an ML-DSA-65 key (post-quantum,
+	    FIPS 204). Requires Go 1.27+.
+
 	-pkcs12
 	    Generate a ".p12" PKCS #12 file, also know as a ".pfx" file,
 	    containing certificate and key for legacy applications.
@@ -75,7 +79,8 @@ const advancedUsage = `Advanced options:
 	$TRUST_STORES (environment variable)
 	    A comma-separated list of trust stores to install the local
 	    root CA into. Options are: "system", "java" and "nss" (includes
-	    Firefox). Autodetected by default.
+	    Firefox). If blank, "system" and "java" are enabled by default.
+	    "nss" is disabled by default.
 
 `
 
@@ -91,18 +96,20 @@ func main() {
 	}
 	log.SetFlags(0)
 	var (
-		installFlag   = flag.Bool("install", false, "")
-		uninstallFlag = flag.Bool("uninstall", false, "")
-		pkcs12Flag    = flag.Bool("pkcs12", false, "")
-		ecdsaFlag     = flag.Bool("ecdsa", false, "")
-		clientFlag    = flag.Bool("client", false, "")
-		helpFlag      = flag.Bool("help", false, "")
-		carootFlag    = flag.Bool("CAROOT", false, "")
-		csrFlag       = flag.String("csr", "", "")
-		certFileFlag  = flag.String("cert-file", "", "")
-		keyFileFlag   = flag.String("key-file", "", "")
-		p12FileFlag   = flag.String("p12-file", "", "")
-		versionFlag   = flag.Bool("version", false, "")
+		installFlag         = flag.Bool("install", false, "")
+		uninstallFlag       = flag.Bool("uninstall", false, "")
+		pkcs12Flag          = flag.Bool("pkcs12", false, "")
+		ecdsaFlag           = flag.Bool("ecdsa", false, "")
+		mldsaFlag           = flag.Bool("mldsa", false, "")
+		clientFlag          = flag.Bool("client", false, "")
+		helpFlag            = flag.Bool("help", false, "")
+		carootFlag          = flag.Bool("CAROOT", false, "")
+		csrFlag             = flag.String("csr", "", "")
+		certFileFlag        = flag.String("cert-file", "", "")
+		keyFileFlag         = flag.String("key-file", "", "")
+		p12FileFlag         = flag.String("p12-file", "", "")
+		nameConstraintsFlag = flag.String("name-constraints", "", "")
+		versionFlag         = flag.Bool("version", false, "")
 	)
 	flag.Usage = func() {
 		fmt.Fprint(flag.CommandLine.Output(), shortUsage)
@@ -136,16 +143,20 @@ func main() {
 	if *installFlag && *uninstallFlag {
 		log.Fatalln("ERROR: you can't set -install and -uninstall at the same time")
 	}
-	if *csrFlag != "" && (*pkcs12Flag || *ecdsaFlag || *clientFlag) {
-		log.Fatalln("ERROR: can only combine -csr with -install and -cert-file")
+	if *ecdsaFlag && *mldsaFlag {
+		log.Fatalln("ERROR: can't set -ecdsa and -mldsa at the same time")
+	}
+	if *csrFlag != "" && (*pkcs12Flag || *ecdsaFlag || *mldsaFlag) {
+		log.Fatalln("ERROR: can only combine -csr with -install, -client and -cert-file")
 	}
 	if *csrFlag != "" && flag.NArg() != 0 {
 		log.Fatalln("ERROR: can't specify extra arguments when using -csr")
 	}
 	(&mkcert{
 		installMode: *installFlag, uninstallMode: *uninstallFlag, csrPath: *csrFlag,
-		pkcs12: *pkcs12Flag, ecdsa: *ecdsaFlag, client: *clientFlag,
+		pkcs12: *pkcs12Flag, ecdsa: *ecdsaFlag, mldsa: *mldsaFlag, client: *clientFlag,
 		certFile: *certFileFlag, keyFile: *keyFileFlag, p12File: *p12FileFlag,
+		nameConstraints: *nameConstraintsFlag,
 	}).Run(flag.Args())
 }
 
@@ -153,10 +164,11 @@ const rootName = "rootCA.pem"
 const rootKeyName = "rootCA-key.pem"
 
 type mkcert struct {
-	installMode, uninstallMode bool
-	pkcs12, ecdsa, client      bool
-	keyFile, certFile, p12File string
-	csrPath                    string
+	installMode, uninstallMode   bool
+	pkcs12, ecdsa, mldsa, client bool
+	nameConstraints              string
+	keyFile, certFile, p12File   string
+	csrPath                      string
 
 	CAROOT string
 	caCert *x509.Certificate
@@ -345,7 +357,7 @@ func (m *mkcert) checkPlatform() bool {
 func storeEnabled(name string) bool {
 	stores := os.Getenv("TRUST_STORES")
 	if stores == "" {
-		return true
+		return name != "nss"
 	}
 	for _, store := range strings.Split(stores, ",") {
 		if store == name {
@@ -389,5 +401,5 @@ func commandWithSudo(cmd ...string) *exec.Cmd {
 		})
 		return exec.Command(cmd[0], cmd[1:]...)
 	}
-	return exec.Command("sudo", append([]string{"--prompt=Sudo password:", "--"}, cmd...)...)
+	return exec.Command("sudo", append([]string{"--prompt=mkcert will now install certificates into your root certificate store.\nEnter your sudo password:", "--"}, cmd...)...)
 }

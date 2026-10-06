@@ -50,6 +50,9 @@ func (m *mkcert) makeCert(hosts []string) {
 	if m.caKey == nil {
 		log.Fatalln("ERROR: can't create new certificates because the CA key (rootCA-key.pem) is missing")
 	}
+	if m.mldsa && m.pkcs12 {
+		log.Fatalln("ERROR: PKCS#12 does not support ML-DSA keys")
+	}
 
 	priv, err := m.generateKey(false)
 	fatalIfErr(err, "failed to generate certificate key")
@@ -72,6 +75,11 @@ func (m *mkcert) makeCert(hosts []string) {
 		KeyUsage: x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
 	}
 
+	// ML-DSA is a signature-only algorithm; key encipherment does not apply.
+	if m.mldsa {
+		tpl.KeyUsage = x509.KeyUsageDigitalSignature
+	}
+
 	for _, h := range hosts {
 		if ip := net.ParseIP(h); ip != nil {
 			tpl.IPAddresses = append(tpl.IPAddresses, ip)
@@ -86,8 +94,7 @@ func (m *mkcert) makeCert(hosts []string) {
 
 	if m.client {
 		tpl.ExtKeyUsage = append(tpl.ExtKeyUsage, x509.ExtKeyUsageClientAuth)
-	}
-	if len(tpl.IPAddresses) > 0 || len(tpl.DNSNames) > 0 || len(tpl.URIs) > 0 {
+	} else if len(tpl.IPAddresses) > 0 || len(tpl.DNSNames) > 0 || len(tpl.URIs) > 0 {
 		tpl.ExtKeyUsage = append(tpl.ExtKeyUsage, x509.ExtKeyUsageServerAuth)
 	}
 	if len(tpl.EmailAddresses) > 0 {
@@ -165,6 +172,12 @@ func (m *mkcert) printHosts(hosts []string) {
 func (m *mkcert) generateKey(rootCA bool) (crypto.PrivateKey, error) {
 	if m.ecdsa {
 		return ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	}
+	if m.mldsa {
+		if !mldsaSupported {
+			log.Fatalln("ERROR: ML-DSA support requires Go 1.27 or later")
+		}
+		return generateMLDSAKey()
 	}
 	if rootCA {
 		return rsa.GenerateKey(rand.Reader, 3072)
@@ -299,10 +312,17 @@ func (m *mkcert) loadCA() {
 	keyPEMBlock, err := os.ReadFile(filepath.Join(m.CAROOT, rootKeyName))
 	fatalIfErr(err, "failed to read the CA key")
 	keyDERBlock, _ := pem.Decode(keyPEMBlock)
-	if keyDERBlock == nil || keyDERBlock.Type != "PRIVATE KEY" {
+	if keyDERBlock == nil || keyDERBlock.Type != "PRIVATE KEY" && keyDERBlock.Type != "RSA PRIVATE KEY" && keyDERBlock.Type != "EC PRIVATE KEY" {
 		log.Fatalln("ERROR: failed to read the CA key: unexpected content")
 	}
-	m.caKey, err = x509.ParsePKCS8PrivateKey(keyDERBlock.Bytes)
+	switch keyDERBlock.Type {
+	case "RSA PRIVATE KEY":
+		m.caKey, err = x509.ParsePKCS1PrivateKey(keyDERBlock.Bytes)
+	case "EC PRIVATE KEY":
+		m.caKey, err = x509.ParseECPrivateKey(keyDERBlock.Bytes)
+	default:
+		m.caKey, err = x509.ParsePKCS8PrivateKey(keyDERBlock.Bytes)
+	}
 	fatalIfErr(err, "failed to parse the CA key")
 }
 
@@ -344,6 +364,11 @@ func (m *mkcert) newCA() {
 		BasicConstraintsValid: true,
 		IsCA:                  true,
 		MaxPathLenZero:        true,
+	}
+
+	if m.nameConstraints != "" {
+		tpl.PermittedDNSDomainsCritical = true
+		tpl.PermittedDNSDomains = []string{m.nameConstraints, "." + m.nameConstraints}
 	}
 
 	cert, err := x509.CreateCertificate(rand.Reader, tpl, tpl, pub, priv)
