@@ -6,7 +6,6 @@ mkcert is a simple tool for making locally-trusted development certificates. It 
 $ mkcert -install
 Created a new local CA 💥
 The local CA is now installed in the system trust store! ⚡️
-The local CA is now installed in the Firefox trust store (requires browser restart)! 🦊
 
 $ mkcert example.com "*.example.com" example.test localhost 127.0.0.1 ::1
 
@@ -29,7 +28,8 @@ mkcert automatically creates and installs a local CA in the system root store, a
 
 ## Installation
 
-> **Warning**: the `rootCA-key.pem` file that mkcert automatically generates gives complete power to intercept secure requests from your machine. Do not share it.
+> [!WARNING]
+> The `rootCA-key.pem` file that mkcert automatically generates gives complete power to intercept secure requests from your machine. Do not share it.
 
 ### macOS
 
@@ -37,7 +37,6 @@ On macOS, use [Homebrew](https://brew.sh/)
 
 ```
 brew install mkcert
-brew install nss # if you use Firefox
 ```
 
 or [MacPorts](https://www.macports.org/).
@@ -45,10 +44,41 @@ or [MacPorts](https://www.macports.org/).
 ```
 sudo port selfupdate
 sudo port install mkcert
-sudo port install nss # if you use Firefox
+```
+
+or [Flox](https://flox.dev).
+
+```
+flox install mkcert
 ```
 
 ### Linux
+
+#### Package provided by Linux distribuitions
+
+Various Linux distributions have packaged mkcert, check the following table if your Linux distribution provides a package and how it can be installed.
+
+Linux distribution | Package                                                           | How to install
+-------------------|-------------------------------------------------------------------|----------------------------------------------------------
+Alpine             | [mkcert](https://pkgs.alpinelinux.org/packages?name=mkcert)       | `sudo apk add mkcert`
+Alt                | [mkcert](https://packages.altlinux.org/en/sisyphus/srpms/mkcert/) | `sudo apt-get install mkcert`
+Arch               | [mkcert](https://archlinux.org/packages/extra/x86_64/mkcert/)     | `sudo pacman -Syu mkcert`
+Debian             | [mkcert](https://packages.debian.org/sid/source/mkcert)           | `sudo apt-get install mkcert`
+Fedora             | [mkcert](https://packages.fedoraproject.org/pkgs/mkcert/mkcert/)  | `sudo dnf install -y mkcert`
+Gentoo             | [app-misc/mkcert](https://packages.gentoo.org/packages/app-misc/mkcert) | `sudo emerge app-misc/mkcert`
+Homebrew           | [mkcert](https://formulae.brew.sh/formula/mkcert)                 | `sudo brew install mkcert`
+Kali               | [mkcert](https://pkg.kali.org/pkg/mkcert)                         | `sudo apt install mkcert`
+LiGurOS            | [app-misc/mkcert](https://gitlab.com/liguros/liguros-repo/-/tree/stable/app-misc/mkcert) | `sudo emerge app-misc/mkcert`
+MPR                | [mkcert-bin](https://mpr.makedeb.org/packages/mkcert-bin)         | `sudo mist install mkcert-bin`
+Nix                | [mkcert](https://github.com/NixOS/nixpkgs/blob/nixos-unstable/pkgs/by-name/mk/mkcert/package.nix) | `sudo nix-shell -p mkcert`
+OpenSUSE           | [mkcert](https://build.opensuse.org/package/show/openSUSE:Factory/mkcert) | `sudo zypper install mkcert`
+Parabola           | [mkcert](https://www.parabola.nu/packages/extra/x86_64/mkcert/)   | `sudo pacman -Syu mkcert`
+PureOS             | [mkcert](https://software.pureos.net/package/src/pureos/landing/mkcert) | `sudo apt-get install mkcert`
+T2 SDE             | [mkcert](https://t2linux.com/packages/mkcert)                     | `sudo apt-get install mkcert`
+Trisquel           | [mkcert](https://packages.trisquel.org/source/aramo/mkcert)       | `sudo apt-get install mkcert`
+Ubuntu             | [mkcert](https://packages.ubuntu.com/source/questing/mkcert)      | `sudo apt-get install mkcert`
+
+#### Manually
 
 On Linux, first install `certutil`.
 
@@ -83,10 +113,10 @@ chmod +x mkcert-v*-linux-amd64
 sudo cp mkcert-v*-linux-amd64 /usr/local/bin/mkcert
 ```
 
-For Arch Linux users, [`mkcert`](https://archlinux.org/packages/extra/x86_64/mkcert/) is available on the official Arch Linux repository.
+For Flox users, `mkcert` can be installed into a Flox environment.
 
 ```
-sudo pacman -Syu mkcert
+flox install mkcert
 ```
 
 ### Windows
@@ -102,6 +132,12 @@ or use Scoop
 ```
 scoop bucket add extras
 scoop install mkcert
+```
+
+or use [Winget](https://learn.microsoft.com/en-us/windows/package-manager/winget/)
+
+```
+winget install -e --id FiloSottile.mkcert
 ```
 
 or build from source (requires Go 1.26+), or use [the pre-built binaries](https://github.com/FiloSottile/mkcert/releases).
@@ -122,7 +158,13 @@ mkcert supports the following root stores:
 * Chrome and Chromium
 * Java (when `JAVA_HOME` is set)
 
-To only install the local root CA into a subset of them, you can set the `TRUST_STORES` environment variable to a comma-separated list. Options are: "system", "java" and "nss" (includes Firefox).
+To only install the local root CA into a subset of them, you can set the `TRUST_STORES` environment variable to a comma-separated list. Options are: "system", "java", and "nss" (includes Firefox).
+
+Note that Firefox version 120 and later trusts certificates added to the system root store by default on macOS and Windows, so installing to the "nss" root store should be unnecessary on these platforms.
+
+### Manually-supported root stores
+
+* NixOS Linux: Add to configuration.nix: `security.pki.certificateFiles = [ /home/USER/.local/share/mkcert/rootCA.pem ]; # for local development via SSL`
 
 ## Advanced topics
 
@@ -165,11 +207,17 @@ mkcert filippo@example.com
 
 ### Mobile devices
 
-For the certificates to be trusted on mobile devices, you will have to install the root CA. It's the `rootCA.pem` file in the folder printed by `mkcert -CAROOT`.
+For the certificates to be trusted on mobile devices, you will have to install the root CA. It's the `rootCA.pem` file in the folder printed by `mkcert -CAROOT`. However, you have to copy `rootCA.pem` to `rootCA.crt` since iOS does not read the `.pem` extension.
+
+#### iOS
 
 On iOS, you can either use AirDrop, email the CA to yourself, or serve it from an HTTP server. After opening it, you need to [install the profile in Settings > Profile Downloaded](https://github.com/FiloSottile/mkcert/issues/233#issuecomment-690110809) and then [enable full trust in it](https://support.apple.com/en-nz/HT204477).
 
-For Android, you will have to install the CA and then enable user roots in the development build of your app. See [this StackOverflow answer](https://stackoverflow.com/a/22040887/749014).
+#### Android
+
+Save `rootCA.pem` in any folder *other than* Downloads.  Then go to "System Settings : Security & privacy : Mores security & privacy : Encryption & credentials : Install a certificate : CA certificate".  Select "Install anyway" and select `rootCA.pem`.
+
+You may also need to enable user roots in the development build of your app. See [this StackOverflow answer](https://stackoverflow.com/a/22040887/749014).
 
 ### Using the root with Node.js
 
