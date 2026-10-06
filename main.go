@@ -67,7 +67,11 @@ const advancedUsage = `Advanced options:
 
 	-csr CSR
 	    Generate a certificate based on the supplied CSR. Conflicts with
-	    all other flags and arguments except -install and -cert-file.
+	    all other flags and arguments except -install, -client and -cert-file.
+
+	-name-constraints DOMAIN
+	    Constrain the local CA to the given domain (X.509 name constraints).
+	    Only effective when the CA is created.
 
 	-CAROOT
 	    Print the CA certificate and key storage location.

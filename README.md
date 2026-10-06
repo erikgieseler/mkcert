@@ -69,7 +69,6 @@ Gentoo             | [app-misc/mkcert](https://packages.gentoo.org/packages/app-
 Homebrew           | [mkcert](https://formulae.brew.sh/formula/mkcert)                 | `sudo brew install mkcert`
 Kali               | [mkcert](https://pkg.kali.org/pkg/mkcert)                         | `sudo apt install mkcert`
 LiGurOS            | [app-misc/mkcert](https://gitlab.com/liguros/liguros-repo/-/tree/stable/app-misc/mkcert) | `sudo emerge app-misc/mkcert`
-MPR                | [mkcert-bin](https://mpr.makedeb.org/packages/mkcert-bin)         | `sudo mist install mkcert-bin`
 Nix                | [mkcert](https://github.com/NixOS/nixpkgs/blob/nixos-unstable/pkgs/by-name/mk/mkcert/package.nix) | `sudo nix-shell -p mkcert`
 OpenSUSE           | [mkcert](https://build.opensuse.org/package/show/openSUSE:Factory/mkcert) | `sudo zypper install mkcert`
 Parabola           | [mkcert](https://www.parabola.nu/packages/extra/x86_64/mkcert/)   | `sudo pacman -Syu mkcert`
